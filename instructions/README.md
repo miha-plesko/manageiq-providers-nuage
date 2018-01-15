@@ -47,7 +47,7 @@ $ rbenv global 2.3.1
 
 # Qpid-proton installation (required by Nuage provider)
 $ sudo apt-get install -y gcc cmake cmake-curses-gui uuid-dev libssl-dev libsasl2-2 libsasl2-dev swig
-$ git clone --branch 0.18.1 https://github.com/apache/qpid-proton.git ~/qpid-proton
+$ git clone --branch 0.19.0 https://github.com/apache/qpid-proton.git ~/qpid-proton
 $ mkdir -p ~/qpid-proton/build && cd ~/qpid-proton/build
 $ cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_BINDINGS=
 $ make all
@@ -68,8 +68,18 @@ Having the required system libraries installed, we then need to pull the MIQ sou
 
 ```bash
 $ git clone https://github.com/ManageIQ/manageiq.git ~/manageiq
+$ #----------------------------- only needed temporarily until 0.19.0 support is upstreamed
 $ cd ~/manageiq
-$ BUNDLE_WITH=qpid_proton bin/setup # Qpid-proton is needed for Nuage provider's eventing
+$ git remote add patch https://github.com/miha-plesko/manageiq.git
+$ git fetch patch
+$ git checkout patch/upgrade-to-qpid-0.19.0
+$ mkdir plugins && cd plugins
+$ git clone --branch upgrade-to-qpid-0.19.0 https://github.com/miha-plesko/manageiq-providers-nuage.git
+$ echo "override_gem 'manageiq-providers-nuage', :path => File.expand_path('~/manageiq/plugins/manageiq-providers-nuage')" > ../bundler.d/local_plugins.rb
+$ #----------------------------- ENDOF only needed temporarily
+$ cd ~/manageiq
+$ export BUNDLE_WITH=qpid_proton
+$ bin/setup # Qpid-proton is needed for Nuage provider's eventing
 ```
 
 Viola! The MIQ is installed with all providers included (Nuage provider is enabled by default).
@@ -110,7 +120,7 @@ you were wondering). Provide AMQP credentials in the form and click "Validate". 
 ![Configuration -> Add a New Network Provider](./amqp-endpoint.PNG)
 
 That's it, confirm by pressing "Add" button in the bottom-right and Nuage provider will be added.
-When added, the inventory will get collected immediately.
+When added, the inventory will get collected automatically.
 
 ## Add Nuage Provider via Rails Console
 It is also possible to register your Nuage provider from terminal i.e. without using the browser. Open a terminal
@@ -132,7 +142,7 @@ irb(main)> ems = ManageIQ::Providers::Nuage::NetworkManager.create(
   :zone_id => MiqServer.my_server.zone.id
 )
 irb(main)> ems.authentications << AuthUseridPassword.create(:authtype => 'default', :userid => 'myuser', :password => 'mypass')
-irb(main)> ems.authentications << AuthUseridPassword.create(:authtype => 'amqp', :userid => 'jmsuser%40system', :password => 'mypass')
+irb(main)> ems.authentications << AuthUseridPassword.create(:authtype => 'amqp', :userid => 'jmsuser@system', :password => 'mypass')
 irb(main)> ems.endpoints       << Endpoint          .create(:role => 'amqp', :hostname => 'vsd01.XYZ.net', :port => '5672')
 irb(main)> ems.authentication_check
 irb(main)> ems.save
